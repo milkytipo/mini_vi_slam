@@ -198,13 +198,9 @@ class ExpLandmarkOptSLAM {
           optimization_problem_.AddParameterBlock(velocity_parameter_.at(0)->parameters(), 3);
           optimization_problem_.SetParameterBlockConstant(velocity_parameter_.at(0)->parameters());
 
-<<<<<<< HEAD
-          return true; //only initialize the frist groudtruth
-=======
           std::cout << "Finished initialization from the ground truth file." << std::endl;
 
           return true;
->>>>>>> e7ade1e68251132cc0403ffb3809a48d5fba6ce3
         }
       }
     }
@@ -216,12 +212,8 @@ class ExpLandmarkOptSLAM {
 
   bool ReadIMUData(std::string imu_file_path) {
   
-<<<<<<< HEAD
-          
-=======
     std::cout << "Read IMU data at " << imu_file_path << std::endl;
 
->>>>>>> e7ade1e68251132cc0403ffb3809a48d5fba6ce3
     std::ifstream input_file(imu_file_path);
     
     if(!input_file.is_open()) 
@@ -315,10 +307,6 @@ class ExpLandmarkOptSLAM {
           break;
         }
       }
-<<<<<<< HEAD
-      // std::cout << observation_data.getObservation() << std::endl;
-      ceres::CostFunction* cost_function = new ReprojectionError(observation_data.getObservation(),
-=======
 
       if (landmark_id >= landmark_parameter_.size()) {
         landmark_parameter_.push_back(new LandmarkParameterBlock(Eigen::Vector3d(), landmark_id));
@@ -328,7 +316,6 @@ class ExpLandmarkOptSLAM {
       std::cout << pose_id << ": " << landmark_id << std::endl;
 
       ceres::CostFunction* cost_function = new ReprojectionError(observation_data.GetFeaturePosition(),
->>>>>>> e7ade1e68251132cc0403ffb3809a48d5fba6ce3
                                                                  focal_length_,
                                                                  principal_point_);
 
@@ -350,11 +337,7 @@ class ExpLandmarkOptSLAM {
 
     optimization_options_.linear_solver_type = ceres::DENSE_SCHUR;
     optimization_options_.minimizer_progress_to_stdout = true;
-<<<<<<< HEAD
-    optimization_options_.num_threads = 80;
-=======
     optimization_options_.num_threads = 6;
->>>>>>> e7ade1e68251132cc0403ffb3809a48d5fba6ce3
 
     ceres::Solve(optimization_options_, &optimization_problem_, &optimization_summary_);
     std::cout << optimization_summary_.FullReport() << "\n";
@@ -401,14 +384,10 @@ int main(int argc, char **argv) {
   std::string config_folder_path = "../config/";
   slam_problem.ReadConfigurationFiles(config_folder_path);
 
-<<<<<<< HEAD
   /*** Step 1. Datasets ***/
   std::string file(argv[1]);
   std::string euroc_dataset_path(file + "/");
   // std::string euroc_dataset_path = "../../../dataset/mav0/";
-=======
-  std::string euroc_dataset_path = "../../../dataset/mav0/";
->>>>>>> e7ade1e68251132cc0403ffb3809a48d5fba6ce3
   std::string ground_truth_file_path = euroc_dataset_path + "state_groundtruth_estimate0/data.csv";
   slam_problem.ReadInitialCondition(ground_truth_file_path);
 
