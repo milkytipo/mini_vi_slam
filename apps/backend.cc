@@ -159,11 +159,9 @@ class ExpLandmarkOptSLAM {
 
     while (std::getline(input_file, line)) {
       std::stringstream s_stream(line);                // Create a stringstream of the current line
-
       if (s_stream.good()) {
         std::string time_stamp_str;
         std::getline(s_stream, time_stamp_str, ',');   // get first string delimited by comma
-      
         if (time_begin_ <= ConverStrTime(time_stamp_str)) {
           // position
           std::string initial_position_str[3];
@@ -198,7 +196,7 @@ class ExpLandmarkOptSLAM {
           optimization_problem_.AddParameterBlock(velocity_parameter_.at(0)->parameters(), 3);
           optimization_problem_.SetParameterBlockConstant(velocity_parameter_.at(0)->parameters());
 
-          return true;
+          return true; //only initialize the frist groudtruth
         }
       }
     }
@@ -210,7 +208,7 @@ class ExpLandmarkOptSLAM {
 
   bool readIMUData(std::string imu_file_path) {
   
-
+          
     std::ifstream input_file(imu_file_path);
     
     if(!input_file.is_open()) 
@@ -307,7 +305,7 @@ class ExpLandmarkOptSLAM {
           break;
         }
       }
-
+      // std::cout << observation_data.getObservation() << std::endl;
       ceres::CostFunction* cost_function = new ReprojectionError(observation_data.getObservation(),
                                                                  focal_length_,
                                                                  principal_point_);
@@ -332,10 +330,13 @@ class ExpLandmarkOptSLAM {
 
     optimization_options_.linear_solver_type = ceres::DENSE_SCHUR;
     optimization_options_.minimizer_progress_to_stdout = true;
-    optimization_options_.num_threads = 8;
+    optimization_options_.num_threads = 80;
 
     ceres::Solve(optimization_options_, &optimization_problem_, &optimization_summary_);
     std::cout << optimization_summary_.FullReport() << "\n";
+    for (auto pt:(position_parameter_)){
+      std::cout <<  pt<< std::endl;
+    }
 
     return true;
   }
@@ -382,7 +383,9 @@ int main(int argc, char **argv) {
 
 
   /*** Step 1. Datasets ***/
-  std::string euroc_dataset_path = "../../../dataset/mav0/";
+  std::string file(argv[1]);
+  std::string euroc_dataset_path(file + "/");
+  // std::string euroc_dataset_path = "../../../dataset/mav0/";
   std::string ground_truth_file_path = euroc_dataset_path + "state_groundtruth_estimate0/data.csv";
   slam_problem.readInitialCondition(ground_truth_file_path);
 

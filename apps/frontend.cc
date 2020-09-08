@@ -75,8 +75,9 @@ int main(int argc, char **argv) {
   /*** Step 1. Read image files ***/
 
   // the folder path
-  // std::string path(argv[1]);
-  std::string path("../../../dataset/mav0/");
+  std::string file(argv[1]);
+  std::string path(file + +"/");
+  // std::string path("./../../dataset/mav0/");
   std::string camera_data_folder("cam0/data/");
 
   std::vector<std::string> image_names;
@@ -121,7 +122,7 @@ int main(int argc, char **argv) {
 
   /*** Step 2. Extract features ***/
 
-  std::shared_ptr<cv::FeatureDetector> brisk_detector =
+ cv::Ptr<cv::BRISK> brisk_detector =
     cv::BRISK::create(60, 0, 1.0f);
 
 
@@ -142,8 +143,8 @@ int main(int argc, char **argv) {
 
   /*** Step 3. Match features ***/
 
-  std::shared_ptr<cv::DescriptorMatcher> matcher = 
-    cv::DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
+  cv::Ptr<cv::DescriptorMatcher> matcher = 
+  cv::DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
 
   std::vector<std::vector<cv::DMatch>> image_matches(num_of_cam_observations-1);
   std::vector<std::vector<cv::DMatch>> image_good_matches(num_of_cam_observations-1);
