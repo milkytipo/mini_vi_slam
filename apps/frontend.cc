@@ -15,16 +15,21 @@
 
 class CameraData {
  public:
-  CameraData(std::string timeStampStr, std::string dataFilePath) {
-    time_ = timeStampStr;
-    image_ = cv::imread(dataFilePath,cv::IMREAD_GRAYSCALE);
+  CameraData(std::string timestamp_str, std::string data_file_path) {
+    timestamp_ = timestamp_str;
+    image_ = cv::imread(data_file_path, cv::IMREAD_GRAYSCALE);
   }
 
-  std::string getTime() { return time_; }
-  cv::Mat getImage() { return image_; }
+  std::string GetTimestamp() { 
+    return timestamp_; 
+  }
+  
+  cv::Mat GetImage() { 
+    return image_; 
+  }
 
  private:
-  std::string time_;   // we don't have to process time at this moment
+  std::string timestamp_;   // we don't have to process time at this moment
   cv::Mat image_;
 };
 
@@ -36,11 +41,11 @@ class CVKeypoint {
  		hash_value_ = keypoint.hash();
  	}
 
-  float getU() {
+  float GetU() {
   	return keypoint_.pt.x;
   }
 
-  float getV() {
+  float GetV() {
   	return keypoint_.pt.y;
   }
 
@@ -86,7 +91,7 @@ int main(int argc, char **argv) {
   for (auto iter = boost::filesystem::directory_iterator(path + camera_data_folder);
         iter != boost::filesystem::directory_iterator(); iter++) {
 
-    if (!boost::filesystem::is_directory(iter->path())) {          //we eliminate directories
+    if (!boost::filesystem::is_directory(iter->path())) {          // we eliminate directories
       image_names.push_back(iter->path().filename().string());
     } 
     else
@@ -94,8 +99,6 @@ int main(int argc, char **argv) {
   }
 
   std::sort(image_names.begin(), image_names.end());
-
-  // size_t downsample_rate = DOWNSAMPLE_RATE;
 
   std::vector<CameraData> camera_observation_data;   // image and timestep
 
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
         std::string dataFilePath = path + camera_data_folder + image_names_iter;
         camera_observation_data.push_back(CameraData(time_stamp_str, dataFilePath));
 
-        // cv::imshow(time_stamp_str, camera_observation_data.back().getImage());
+        // cv::imshow(time_stamp_str, camera_observation_data.back().GetImage());
         // cv::waitKey(100);
       }
     }
@@ -134,9 +137,9 @@ int main(int argc, char **argv) {
 
   for (size_t i=0; i<num_of_cam_observations; i++) {	
 
-    brisk_detector->detect(camera_observation_data.at(i).getImage(), image_keypoints.at(i));
+    brisk_detector->detect(camera_observation_data.at(i).GetImage(), image_keypoints.at(i));
 
-    brisk_detector->compute(camera_observation_data.at(i).getImage(), 
+    brisk_detector->compute(camera_observation_data.at(i).GetImage(), 
       image_keypoints.at(i), 
       image_descriptions.at(i));
   }
@@ -155,13 +158,13 @@ int main(int argc, char **argv) {
 
     cv::Mat img_w_matches;
     for (size_t k=0; k<image_matches.at(i).size(); k++) {
-      if (image_matches.at(i)[k].distance < 60) {   // 60
+      if (image_matches.at(i)[k].distance < 60) {
         image_good_matches.at(i).push_back(image_matches.at(i)[k]);
       }
     }
 
-    cv::drawMatches(camera_observation_data.at(i).getImage(), image_keypoints.at(i),
-                    camera_observation_data.at(i+1).getImage(), image_keypoints.at(i+1),
+    cv::drawMatches(camera_observation_data.at(i).GetImage(), image_keypoints.at(i),
+                    camera_observation_data.at(i+1).GetImage(), image_keypoints.at(i+1),
                     image_good_matches.at(i), img_w_matches);
 
     cv::imshow("Matches between " + std::to_string(i) + " and " + std::to_string(i+1), img_w_matches);
@@ -202,8 +205,8 @@ int main(int argc, char **argv) {
 
     // output
     // timestamp [ns], landmark id, u [pixel], v [pixel]
-    std::string output_str = camera_observation_data.at(i).getTime() + "," + std::to_string(landmark_id+1) + ","
-                              + std::to_string(pre_keypoint.getU()) + "," + std::to_string(pre_keypoint.getV()) + "\n";
+    std::string output_str = camera_observation_data.at(i).GetTimestamp() + "," + std::to_string(landmark_id+1) + ","
+                              + std::to_string(pre_keypoint.GetU()) + "," + std::to_string(pre_keypoint.GetV()) + "\n";
     output_feature_observation.push_back(output_str);
     // output_file << output_str;
 
