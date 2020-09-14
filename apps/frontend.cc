@@ -12,6 +12,88 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/calib3d.hpp>
 
+using namespace cv;
+using namespace std;
+
+Point2f pixel2cam( const Point2d& p, const Mat& K ){
+      return Point2f
+    (
+        ( p.x - K.at<double>(0,2) ) / K.at<double>(0,0), 
+        ( p.y - K.at<double>(1,2) ) / K.at<double>(1,1) 
+    );
+}
+void pose_estimation_2d2d (
+    const std::vector<cv::KeyPoint>& keypoints_1,
+    const std::vector<cv::KeyPoint>& keypoints_2,
+    const std::vector< cv::DMatch >& matches,
+    cv::Mat& R, cv::Mat& t ){
+
+    Point2d principal_point (367.215803962, 248.37534061);	
+    int focal_length = 458;	
+    cv::Mat K = ( cv::Mat_<double> ( 3,3 ) << 458.654880721, 0, principal_point.x , 0, 457.296696463, principal_point.y, 0, 0, 1 );
+    vector<Point2f> points1;
+    vector<Point2f> points2;
+
+    for ( int i = 0; i < ( int ) matches.size(); i++ )
+    {
+        points1.push_back ( keypoints_1[matches[i].queryIdx].pt );
+        points2.push_back ( keypoints_2[matches[i].trainIdx].pt );
+    }
+
+    Mat fundamental_matrix;
+    fundamental_matrix = findFundamentalMat ( points1, points2, CV_FM_8POINT );
+
+    Mat essential_matrix;
+    essential_matrix = findEssentialMat ( points1, points2, focal_length, principal_point );
+
+    Mat homography_matrix;
+    homography_matrix = findHomography ( points1, points2, RANSAC, 3 );
+
+    recoverPose ( essential_matrix, points1, points2, R, t, focal_length, principal_point ); 
+
+    }
+
+void triangulation (
+    const std::vector<cv::KeyPoint>& keypoint_1,
+    const std::vector<cv::KeyPoint>& keypoint_2,
+    const std::vector< cv::DMatch >& matches,
+    const cv::Mat& R, const cv::Mat& t,
+    std::vector<cv::Point3d>& points){
+    Mat T1 = (Mat_<float> (3,4) <<
+        1,0,0,0,
+        0,1,0,0,
+        0,0,1,0);
+    Mat T2 = (Mat_<float> (3,4) <<
+        R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t.at<double>(0,0),
+        R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), t.at<double>(1,0),
+        R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), t.at<double>(2,0)
+    );
+    Point2d principal_point (367.215803962, 248.37534061);	
+    int focal_length = 458;	
+    cv::Mat K = ( cv::Mat_<double> ( 3,3 ) << 458.654880721, 0, principal_point.x , 0, 457.296696463, principal_point.y, 0, 0, 1 );
+    vector<Point2f> pts_1, pts_2;
+    for ( DMatch m:matches )
+    {
+        pts_1.push_back ( pixel2cam( keypoint_1[m.queryIdx].pt, K) );
+        pts_2.push_back ( pixel2cam( keypoint_2[m.trainIdx].pt, K) );
+    }
+    
+    Mat pts_4d;
+    cv::triangulatePoints( T1, T2, pts_1, pts_2, pts_4d );
+    
+    for ( int i=0; i<pts_4d.cols; i++ )
+    {
+        Mat x = pts_4d.col(i);
+        x /= x.at<float>(3,0); // 归一化
+        Point3d p (
+            x.at<float>(0,0), 
+            x.at<float>(1,0), 
+            x.at<float>(2,0) 
+        );
+        points.push_back( p );
+    }
+}
+
 
 class CameraData {
  public:
@@ -80,8 +162,8 @@ int main(int argc, char **argv) {
   /*** Step 1. Read image files ***/
 
   // the folder path
-  // std::string path(argv[1]);
-  std::string path("../../../dataset/mav0/");
+  std::string path((std::string)argv[1]+"/");
+  // std::string path("../../../dataset/mav0/");
   std::string camera_data_folder("cam0/data/");
 
   std::vector<std::string> image_names;
@@ -124,7 +206,7 @@ int main(int argc, char **argv) {
 
   /*** Step 2. Extract features ***/
 
-  std::shared_ptr<cv::FeatureDetector> brisk_detector =
+  cv::Ptr<cv::BRISK> brisk_detector =
     cv::BRISK::create(60, 0, 1.0f);
 
 
@@ -142,15 +224,15 @@ int main(int argc, char **argv) {
       image_keypoints.at(i), 
       image_descriptions.at(i));
   }
-
+ 
   /*** Step 3. Match features ***/
 
-  std::shared_ptr<cv::DescriptorMatcher> matcher = 
+  cv::Ptr<cv::DescriptorMatcher>  matcher = 
     cv::DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);
 
   std::vector<std::vector<cv::DMatch>> image_matches(num_of_cam_observations-1);
   std::vector<std::vector<cv::DMatch>> image_good_matches(num_of_cam_observations-1);
-
+  std::vector< vector<Point3d>> landmark_points_data;
   for (size_t i=0; i<num_of_cam_observations-1; i++) {
 
     matcher->match(image_descriptions.at(i), image_descriptions.at(i+1), image_matches.at(i));
@@ -161,15 +243,28 @@ int main(int argc, char **argv) {
         image_good_matches.at(i).push_back(image_matches.at(i)[k]);
       }
     }
+    Mat R,t;
+    pose_estimation_2d2d (image_keypoints.at(i), 
+                                                      image_keypoints.at(i+1), 
+                                                      image_good_matches.at(i),
+                                                      R, 
+                                                      t);
 
-    cv::drawMatches(camera_observation_data.at(i).GetImage(), image_keypoints.at(i),
-                    camera_observation_data.at(i+1).GetImage(), image_keypoints.at(i+1),
-                    image_good_matches.at(i), img_w_matches);
+    vector<Point3d> points;
+    triangulation( image_keypoints.at(i),
+                                  image_keypoints.at(i+1),
+                                  image_good_matches.at(i),
+                                  R, 
+                                  t, 
+                                  points );
+    landmark_points_data.push_back(points);
+    // cv::drawMatches(camera_observation_data.at(i).GetImage(), image_keypoints.at(i),
+    //                 camera_observation_data.at(i+1).GetImage(), image_keypoints.at(i+1),
+    //                 image_good_matches.at(i), img_w_matches);
 
-    cv::imshow("Matches between " + std::to_string(i) + " and " + std::to_string(i+1), img_w_matches);
-    cv::waitKey();
+    // cv::imshow("Matches between " + std::to_string(i) + " and " + std::to_string(i+1), img_w_matches);
+    // cv::waitKey();
   }
-
 
   /*** Step 4. Obtain feature observation ***/
 
@@ -205,7 +300,8 @@ int main(int argc, char **argv) {
     // output
     // timestamp [ns], landmark id, u [pixel], v [pixel]
     std::string output_str = camera_observation_data.at(i).GetTimestamp() + "," + std::to_string(landmark_id+1) + ","
-                              + std::to_string(pre_keypoint.GetU()) + "," + std::to_string(pre_keypoint.GetV()) + "\n";
+                              + std::to_string(pre_keypoint.GetU()) + "," + std::to_string(pre_keypoint.GetV()) + "," + std::to_string(landmark_points_data.at(i)[m].x) + ","
+                              + std::to_string(landmark_points_data.at(i)[m].y) + "," + std::to_string(landmark_points_data.at(i)[m].z) + "\n";
     output_feature_observation.push_back(output_str);
     // output_file << output_str;
 
@@ -221,13 +317,15 @@ int main(int argc, char **argv) {
 
   std::ofstream output_file;
   output_file.open ("feature_observation.csv");
-  output_file << "timestamp [ns], landmark id, u [pixel], v [pixel]\n";
+  output_file << "timestamp [ns], landmark id, u [pixel], v [pixel], l_x, l_y, l_z\n";
   
   for (auto& output_str: output_feature_observation) { 
     // timestamp [ns], landmark id, u [pixel], v [pixel]
     output_file << output_str;
   }
   
-  output_file.close();
+  output_file.close();       
+
+ 
   return 0;
 }

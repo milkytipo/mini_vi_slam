@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "csignal": "cpp",
+        "*.tcc": "cpp",
+        "core": "cpp"
+    }
+}
