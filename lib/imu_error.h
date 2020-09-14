@@ -1,40 +1,12 @@
-/*********************************************************************************
- *  OKVIS - Open Keyframe-based Visual-Inertial SLAM
- *  Copyright (c) 2015, Autonomous Systems Lab / ETH Zurich
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are met:
- * 
- *   * Redistributions of source code must retain the above copyright notice,
- *     this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright notice,
- *     this list of conditions and the following disclaimer in the documentation
- *     and/or other materials provided with the distribution.
- *   * Neither the name of Autonomous Systems Lab / ETH Zurich nor the names of
- *     its contributors may be used to endorse or promote products derived from
- *     this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
- *  Created on: Sep 3, 2013
- *      Author: Stefan Leutenegger (s.leutenegger@imperial.ac.uk)
- *********************************************************************************/
+
 
 /**
  * @file ImuError.hpp
  * @brief Header file for the ImuError class.
- * @author Stefan Leutenegger
+ * @author Tsang-Kai Chang
  */
+
+// TODO(tsangkai): Implement bias parameters (interface, residual, and jacobian)
 
 #ifndef INCLUDE_IMU_ERROR_H_
 #define INCLUDE_IMU_ERROR_H_
@@ -50,10 +22,6 @@
 // #include <okvis/Parameters.hpp>
 // #include <okvis/ceres/ErrorInterface.hpp>
 
-/// \brief okvis Main namespace of this package.
-// namespace okvis {
-/// \brief ceres Namespace for ceres-related functionality implemented in okvis.
-// namespace ceres {
 
 /// \brief Implements a nonlinear IMU factor.
 class ImuError :
@@ -134,14 +102,21 @@ class ImuError :
     Eigen::Vector3d _velocity_t(parameters[4][0], parameters[4][1], parameters[4][2]);
     Eigen::Quaterniond _rotation_t(parameters[5][0], parameters[5][1], parameters[5][2], parameters[5][3]);
 
+    Eigen::Vector3d gravity = Eigen::Vector3d(0, 0, -9.81007);      
+    Eigen::Vector3d gyro_bias = Eigen::Vector3d(-0.003196, 0.021298, 0.078430);
+    Eigen::Vector3d accel_bias = Eigen::Vector3d(-0.026176, 0.137568, 0.076295);
+
+    // residual vectors
     Eigen::Map<Eigen::Vector3d > _r_position(residuals+0);      
     Eigen::Map<Eigen::Vector3d > _r_velocity(residuals+3);      
     Eigen::Map<Eigen::Quaterniond > _r_rotation(residuals+6);      
 
-    Eigen::Vector3d _accel_plus_gravity = _rotation_t.normalized().toRotationMatrix()*accel_measurement_ + Eigen::Vector3d(0, 0, -9.81007);
+    Eigen::Vector3d _accel_plus_gravity = _rotation_t.normalized().toRotationMatrix()*(accel_measurement_ - accel_bias) + gravity;
     _r_position = _position_t1 - ( _position_t +  dt_*_velocity_t + (dt_*dt_*0.5)* _accel_plus_gravity);
     _r_velocity = _velocity_t1 - (                    _velocity_t +           dt_* _accel_plus_gravity);
-    _r_rotation = _rotation_t1 * ( _rotation_t * Eigen::Quaterniond(1, 0.5*dt_*gyro_measurement_(0), 0.5*dt_*gyro_measurement_(1), 0.5*dt_*gyro_measurement_(2))).inverse();
+    _r_rotation = _rotation_t1 * ( _rotation_t * Eigen::Quaterniond(1, 0.5*dt_*(gyro_measurement_(0)-gyro_bias(0)), 
+                                                                       0.5*dt_*(gyro_measurement_(1)-gyro_bias(1)), 
+                                                                       0.5*dt_*(gyro_measurement_(2)-gyro_bias(2)))).inverse();
     
 
 
@@ -153,23 +128,6 @@ class ImuError :
 
     if (jacobians != NULL) {
       
-      Eigen::MatrixXd J_p_to_q(3,4);
-      J_p_to_q(0,0) = accel_measurement_(0)*( 2)*_rotation_t.w()+accel_measurement_(1)*(-2)*_rotation_t.z()+accel_measurement_(2)*( 2)*_rotation_t.y();
-      J_p_to_q(0,1) = accel_measurement_(0)*( 2)*_rotation_t.x()+accel_measurement_(1)*( 2)*_rotation_t.y()+accel_measurement_(2)*( 2)*_rotation_t.z();
-      J_p_to_q(0,2) = accel_measurement_(0)*(-2)*_rotation_t.y()+accel_measurement_(1)*( 2)*_rotation_t.x()+accel_measurement_(2)*( 2)*_rotation_t.w();
-      J_p_to_q(0,3) = accel_measurement_(0)*(-2)*_rotation_t.z()+accel_measurement_(1)*(-2)*_rotation_t.w()+accel_measurement_(2)*( 2)*_rotation_t.x();
-
-      J_p_to_q(1,0) = accel_measurement_(0)*( 2)*_rotation_t.z()+accel_measurement_(1)*( 2)*_rotation_t.w()+accel_measurement_(2)*(-2)*_rotation_t.x();
-      J_p_to_q(1,1) = accel_measurement_(0)*( 2)*_rotation_t.y()+accel_measurement_(1)*(-2)*_rotation_t.x()+accel_measurement_(2)*(-2)*_rotation_t.w();
-      J_p_to_q(1,2) = accel_measurement_(0)*( 2)*_rotation_t.x()+accel_measurement_(1)*( 2)*_rotation_t.y()+accel_measurement_(2)*( 2)*_rotation_t.z();
-      J_p_to_q(1,3) = accel_measurement_(0)*( 2)*_rotation_t.w()+accel_measurement_(1)*(-2)*_rotation_t.z()+accel_measurement_(2)*( 2)*_rotation_t.y();
-
-      J_p_to_q(2,0) = accel_measurement_(0)*(-2)*_rotation_t.y()+accel_measurement_(1)*( 2)*_rotation_t.x()+accel_measurement_(2)*( 2)*_rotation_t.w();
-      J_p_to_q(2,1) = accel_measurement_(0)*( 2)*_rotation_t.z()+accel_measurement_(1)*( 2)*_rotation_t.w()+accel_measurement_(2)*(-2)*_rotation_t.x();
-      J_p_to_q(2,2) = accel_measurement_(0)*(-2)*_rotation_t.w()+accel_measurement_(1)*( 2)*_rotation_t.z()+accel_measurement_(2)*(-2)*_rotation_t.y();
-      J_p_to_q(2,3) = accel_measurement_(0)*( 2)*_rotation_t.x()+accel_measurement_(1)*( 2)*_rotation_t.y()+accel_measurement_(2)*( 2)*_rotation_t.z();
-
-
       // position_t1
       if (jacobians[0] != NULL) {
 
@@ -247,9 +205,9 @@ class ImuError :
           }
         }
 
-        J_v_t(1,0) = -dt_;
-        J_v_t(2,1) = -dt_;
-        J_v_t(3,2) = -dt_;
+        J_v_t(0,0) = -dt_;
+        J_v_t(1,1) = -dt_;
+        J_v_t(2,2) = -dt_;
 
         J_v_t(3,0) = -1.0;
         J_v_t(4,1) = -1.0;
@@ -266,6 +224,24 @@ class ImuError :
           }
         }
 
+        // TODO(tsangkai): replace this with matrix operation
+        Eigen::MatrixXd J_p_to_q(3,4);
+        Eigen::Vector3d accel_minus_bias = accel_measurement_ - accel_bias;
+        J_p_to_q(0,0) = accel_minus_bias(0)*( 2)*_rotation_t.w()+accel_minus_bias(1)*(-2)*_rotation_t.z()+accel_minus_bias(2)*( 2)*_rotation_t.y();
+        J_p_to_q(0,1) = accel_minus_bias(0)*( 2)*_rotation_t.x()+accel_minus_bias(1)*( 2)*_rotation_t.y()+accel_minus_bias(2)*( 2)*_rotation_t.z();
+        J_p_to_q(0,2) = accel_minus_bias(0)*(-2)*_rotation_t.y()+accel_minus_bias(1)*( 2)*_rotation_t.x()+accel_minus_bias(2)*( 2)*_rotation_t.w();
+        J_p_to_q(0,3) = accel_minus_bias(0)*(-2)*_rotation_t.z()+accel_minus_bias(1)*(-2)*_rotation_t.w()+accel_minus_bias(2)*( 2)*_rotation_t.x();
+
+        J_p_to_q(1,0) = accel_minus_bias(0)*( 2)*_rotation_t.z()+accel_minus_bias(1)*( 2)*_rotation_t.w()+accel_minus_bias(2)*(-2)*_rotation_t.x();
+        J_p_to_q(1,1) = accel_minus_bias(0)*( 2)*_rotation_t.y()+accel_minus_bias(1)*(-2)*_rotation_t.x()+accel_minus_bias(2)*(-2)*_rotation_t.w();
+        J_p_to_q(1,2) = accel_minus_bias(0)*( 2)*_rotation_t.x()+accel_minus_bias(1)*( 2)*_rotation_t.y()+accel_minus_bias(2)*( 2)*_rotation_t.z();
+        J_p_to_q(1,3) = accel_minus_bias(0)*( 2)*_rotation_t.w()+accel_minus_bias(1)*(-2)*_rotation_t.z()+accel_minus_bias(2)*( 2)*_rotation_t.y();
+
+        J_p_to_q(2,0) = accel_minus_bias(0)*(-2)*_rotation_t.y()+accel_minus_bias(1)*( 2)*_rotation_t.x()+accel_minus_bias(2)*( 2)*_rotation_t.w();
+        J_p_to_q(2,1) = accel_minus_bias(0)*( 2)*_rotation_t.z()+accel_minus_bias(1)*( 2)*_rotation_t.w()+accel_minus_bias(2)*(-2)*_rotation_t.x();
+        J_p_to_q(2,2) = accel_minus_bias(0)*(-2)*_rotation_t.w()+accel_minus_bias(1)*( 2)*_rotation_t.z()+accel_minus_bias(2)*(-2)*_rotation_t.y();
+        J_p_to_q(2,3) = accel_minus_bias(0)*( 2)*_rotation_t.x()+accel_minus_bias(1)*( 2)*_rotation_t.y()+accel_minus_bias(2)*( 2)*_rotation_t.z();
+
         J_q_t(6,0) = -1.0;
         J_q_t(7,1) = -1.0;
         J_q_t(8,2) = -1.0;
@@ -277,16 +253,10 @@ class ImuError :
             J_q_t(3+i,j) = -(dt_) * J_p_to_q(i,j);
           }
         }
-
       }  
-
-
-
     }
 
-
-
-    return 1;
+    return true;
   }
 
 
@@ -323,8 +293,5 @@ class ImuError :
   double dt_;
 
 };
-
-// }  // namespace ceres
-// }  // namespace okvis
 
 #endif /* INCLUDE_IMU_ERROR_H_ */
