@@ -55,10 +55,10 @@ class TriangularizationProblem {
     // add parameter blocks
     for (size_t i=0; i<3; ++i) {
       optimization_problem_.AddParameterBlock(position_parameter_.at(i)->parameters(), 3);
-      optimization_problem_.SetParameterBlockConstant(position_parameter_.at(i)->parameters());
+      // optimization_problem_.SetParameterBlockConstant(position_parameter_.at(i)->parameters());
 
       optimization_problem_.AddParameterBlock(rotation_parameter_.at(i)->parameters(), 4);
-      optimization_problem_.SetParameterBlockConstant(rotation_parameter_.at(i)->parameters());
+      // optimization_problem_.SetParameterBlockConstant(rotation_parameter_.at(i)->parameters());
     }
 
     // observation
