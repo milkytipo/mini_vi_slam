@@ -288,16 +288,6 @@ class Frontend {
             landmark_id_table_.at(j).at(train_idx)->AddNeighbor(landmark_id_table_.at(i).at(query_idx));
           }
         }  
-
-        /***
-        cv::Mat img_w_matches;
-        cv::drawMatches(image_data_.at(i).GetImage(), image_keypoints_.at(i),
-                      image_data_.at(j).GetImage(), image_keypoints_.at(j),
-                      image_keypoint_matches, img_w_matches);
-
-        cv::imshow("Matches between " + std::to_string(i) + " and " + std::to_string(j), img_w_matches);
-        cv::waitKey();
-        ***/
       }
     }
 
@@ -313,14 +303,12 @@ class Frontend {
         }
       }
     }
-<<<<<<< HEAD
     Mat R,t;
     pose_estimation_2d2d (image_keypoints.at(i), 
                                                       image_keypoints.at(i+1), 
                                                       image_good_matches.at(i),
                                                       R, 
                                                       t);
-
     vector<Point3d> points;
     triangulation( image_keypoints.at(i),
                                   image_keypoints.at(i+1),
@@ -329,16 +317,9 @@ class Frontend {
                                   t, 
                                   points );
     landmark_points_data.push_back(points);
-    // cv::drawMatches(camera_observation_data.at(i).GetImage(), image_keypoints.at(i),
-    //                 camera_observation_data.at(i+1).GetImage(), image_keypoints.at(i+1),
-    //                 image_good_matches.at(i), img_w_matches);
-
-    // cv::imshow("Matches between " + std::to_string(i) + " and " + std::to_string(i+1), img_w_matches);
-    // cv::waitKey();
   }
 
   /*** Step 4. Obtain feature observation ***/
-=======
 
 
     // count the number of observations for each landmark/feature
@@ -357,7 +338,6 @@ class Frontend {
     // keep only those landmarks observed often
     size_t landmark_count_after_threshold = 0;
     std::vector<size_t> landmark_id_2_id_table(landmark_count, 0);
->>>>>>> 8ec0557b0f03dfb2c5a1e4830d92f346c5a8f388
 
     for (size_t i=0; i<landmark_count; i++) {
       if (landmark_obs_count.at(i) > landmark_obs_count_threshold_) {

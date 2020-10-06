@@ -7,8 +7,10 @@ find_package(OpenCV REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 
-find_package(Ceres REQUIRED)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules/)
+set(Ceres_DIR "/home/wuzida/3rdParty/ceres-solver-1.14.0/cmake")
 
+find_package(Ceres REQUIRED )
 
 
 include(CTest)
