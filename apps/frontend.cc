@@ -143,7 +143,7 @@ class Frontend {
     return true;
   }
 
-  bool ExtractFeatures(std::shared_ptr<cv::FeatureDetector> detector) {
+  bool ExtractFeatures(cv::Ptr<cv::BRISK>  detector) {
 
     size_t num_of_images = image_data_.size();
 
@@ -171,7 +171,7 @@ class Frontend {
   }
 
 
-  bool MatchFeatures(std::shared_ptr<cv::DescriptorMatcher> matcher) {
+  bool MatchFeatures(cv::Ptr<cv::DescriptorMatcher> matcher) {
 
     size_t num_of_images = image_data_.size();
 
@@ -328,21 +328,21 @@ int main(int argc, char **argv) {
   /*** Step 1. Read image files ***/
 
   // std::string path(argv[1]);
-  std::string dataset_path("../../../dataset/mav0/");
+  std::string dataset_path("/media/zidawu/Vampire/data/Euroc/mav0/");
   std::string camera_data_folder("cam0/data/");
 
   frontend.ReadImages(dataset_path + camera_data_folder);
 
 
   /*** Step 2. Extract features ***/
-  std::shared_ptr<cv::FeatureDetector> brisk_detector = cv::BRISK::create(60, 0, 1.0f);
-  std::shared_ptr<cv::FeatureDetector> orb_detector = cv::ORB::create();
+  cv::Ptr<cv::BRISK> brisk_detector = cv::BRISK::create(60, 0, 1.0f);
+  cv::Ptr<cv::ORB> orb_detector = cv::ORB::create();
 
   frontend.ExtractFeatures(brisk_detector);
 
 
   /*** Step 3. Match features ***/
-  std::shared_ptr<cv::DescriptorMatcher> bf_hamming_matcher = 
+  cv::Ptr<cv::DescriptorMatcher> bf_hamming_matcher = 
       cv::DescriptorMatcher::create(cv::DescriptorMatcher::BRUTEFORCE_HAMMING);  
   frontend.MatchFeatures(bf_hamming_matcher);
 

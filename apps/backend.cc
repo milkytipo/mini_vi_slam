@@ -536,7 +536,7 @@ int main(int argc, char **argv) {
   std::string config_folder_path("../config/");
   ExpLandmarkOptSLAM slam_problem(config_folder_path);
 
-  std::string euroc_dataset_path = "../../../dataset/mav0/";
+  std::string euroc_dataset_path = "/media/zidawu/Vampire/data/Euroc/mav0/";
   std::string ground_truth_file_path = euroc_dataset_path + "state_groundtruth_estimate0/data.csv";
   slam_problem.ReadInitialCondition(ground_truth_file_path);
   slam_problem.ProcessGroundTruth(ground_truth_file_path);
