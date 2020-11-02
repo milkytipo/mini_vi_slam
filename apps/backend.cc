@@ -23,14 +23,16 @@
 
 // TODO: initialized from config files
 Eigen::Vector3d gravity = Eigen::Vector3d(0, 0, -9.81007);      
-Eigen::Vector3d gyro_bias = Eigen::Vector3d(-0.003196, 0.021298, 0.078430);
-Eigen::Vector3d accel_bias = Eigen::Vector3d(-0.026176, 0.137568, 0.076295);
+// Eigen::Vector3d gyro_bias = Eigen::Vector3d(-0.003196, 0.021298, 0.078430);
+// Eigen::Vector3d accel_bias = Eigen::Vector3d(-0.026176, 0.137568, 0.076295);
+Eigen::Vector3d accel_bias = Eigen::Vector3d(0, 0, 0);
+Eigen::Vector3d gyro_bias = Eigen::Vector3d(0, 0, 0);
 
 // TODO: avoid data conversion
 double ConverStrTime(std::string time_str) {
-  std::string time_str_sec = time_str.substr(7,3);       // second
-  std::string time_str_nano_sec = time_str.substr(10);   // nano-second
-
+  size_t pos_ =  time_str.find(".") ;
+  std::string time_str_sec = time_str.substr(0,pos_);       // second
+  std::string time_str_nano_sec = time_str.substr(pos_+1,3);   // nano-second
   return std::stoi(time_str_sec) + std::stoi(time_str_nano_sec)*1e-9;
 }
 
@@ -187,7 +189,7 @@ class ExpLandmarkOptSLAM {
     tri_max_num_iterations_ = (int)(test_config_file["backend"]["tri_max_num_iterations"]);
 
     // experiment configuration file
-    cv::FileStorage experiment_config_file(config_folder_path + "config_fpga_p2_euroc.yaml", cv::FileStorage::READ);
+    cv::FileStorage experiment_config_file(config_folder_path + "vio_simulation.yaml", cv::FileStorage::READ);
 
     imu_dt_ = 1.0 / (double) experiment_config_file["imu_params"]["imu_rate"]; 
 
@@ -226,7 +228,6 @@ class ExpLandmarkOptSLAM {
       if (s_stream.good()) {
         std::string time_stamp_str;
         std::getline(s_stream, time_stamp_str, ',');   // get first string delimited by comma
-      
         if (time_begin_ <= ConverStrTime(time_stamp_str)) {
 
           // state
@@ -296,14 +297,18 @@ class ExpLandmarkOptSLAM {
     std::getline(input_file, first_line_data_str);
 
     std::string observation_data_str;
+
     while (std::getline(input_file, observation_data_str)) {
+
+
       ObservationData observation_data(observation_data_str);
-
-
       // add observation constraints
       // size_t pose_id;
-      size_t landmark_id = observation_data.GetId()-1;
 
+      size_t landmark_id = observation_data.GetId()-1;
+       if (observation_data.GetTimestamp() >time_end_){
+          return 0;
+       }
       if (state_parameter_.back()->GetTimestamp() < observation_data.GetTimestamp()) {
           state_parameter_.push_back(new State(observation_data.GetTimestamp()));
 
@@ -319,7 +324,6 @@ class ExpLandmarkOptSLAM {
         landmark_parameter_.resize(landmark_id+1);
       }
 
-
       landmark_parameter_.at(landmark_id) = new Vec3dParameterBlock(Eigen::Vector3d(0, 0, 0));
       // landmark_parameter_.at(landmark_id) = new LandmarkParameterBlock(Eigen::Vector3d() + 0.01 *Eigen::Vector3d::Random());      
 
@@ -327,7 +331,6 @@ class ExpLandmarkOptSLAM {
                                                                  T_bc_,
                                                                  fu_, fv_,
                                                                  cu_, cv_);
-      
 
       optimization_problem_.AddResidualBlock(cost_function,
                                              NULL,
@@ -336,16 +339,16 @@ class ExpLandmarkOptSLAM {
                                              landmark_parameter_.at(landmark_id)->parameters());
     }
 
-    for (size_t i=0; i<landmark_parameter_.size(); ++i) {
+    // for (size_t i=0; i<landmark_parameter_.size(); ++i) {
 
-      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 0, -30);
-      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 1, -40);
-      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 2, -20);
+    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 0, -30);
+    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 1, -40);
+    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 2, -20);
 
-      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 0, 30);
-      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 1, 20);
-      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 2, 20);
-    }
+    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 0, 30);
+    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 1, 20);
+    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 2, 20);
+    // }
 
     /***
     for (size_t i=0; i<state_parameter_.size(); ++i) {
@@ -478,7 +481,6 @@ class ExpLandmarkOptSLAM {
 
       if (time_begin_ <= imu_data.timestamp_ && imu_data.timestamp_ <= time_end_) {
 
-
         Eigen::Vector3d accel_measurement = imu_data.accel_;
         Eigen::Vector3d gyro_measurement = imu_data.gyro_;      
         Eigen::Vector3d accel_plus_gravity = rotation_dr.toRotationMatrix()*(imu_data.accel_ - accel_bias) + gravity;
@@ -488,6 +490,7 @@ class ExpLandmarkOptSLAM {
         rotation_dr = rotation_dr * Eigen::Quaterniond(1, 0.5*imu_dt_*(imu_data.gyro_(0)-gyro_bias(0)), 
                                                           0.5*imu_dt_*(imu_data.gyro_(1)-gyro_bias(1)), 
                                                           0.5*imu_dt_*(imu_data.gyro_(2)-gyro_bias(2)));
+
       
         if ((state_idx + 1) == state_parameter_.size()) {
           imu_data_vec.push_back(imu_data);
@@ -506,7 +509,7 @@ class ExpLandmarkOptSLAM {
           Eigen::Quaterniond current_rotation = state_parameter_.at(state_idx)->GetRotationBlock()->estimate();
           Eigen::Vector3d current_velocity = state_parameter_.at(state_idx)->GetVelocityBlock()->estimate();
           Eigen::Vector3d current_position = state_parameter_.at(state_idx)->GetPositionBlock()->estimate();
-
+          
           // add imu constraint
           ceres::CostFunction* cost_function = new PreIntImuError(pre_int_imu_data.d_rotation_,
                                                                   pre_int_imu_data.d_velocity_,
@@ -521,14 +524,11 @@ class ExpLandmarkOptSLAM {
                                                  state_parameter_.at(state_idx)->GetRotationBlock()->parameters(),
                                                  state_parameter_.at(state_idx)->GetVelocityBlock()->parameters(),
                                                  state_parameter_.at(state_idx)->GetPositionBlock()->parameters());   
-
           state_idx++;
-          
           // dead-reckoning to initialize 
           state_parameter_.at(state_idx)->GetRotationBlock()->setEstimate(rotation_dr);
           state_parameter_.at(state_idx)->GetVelocityBlock()->setEstimate(velocity_dr);
           state_parameter_.at(state_idx)->GetPositionBlock()->setEstimate(position_dr);
-
           // empty imu_data_vec
           imu_data_vec.clear();
 
@@ -558,7 +558,7 @@ class ExpLandmarkOptSLAM {
 
     for (size_t i=1; i<state_parameter_.size(); ++i) {
       optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i)->GetRotationBlock()->parameters());
-      optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i)->GetVelocityBlock()->parameters());
+      // optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i)->GetVelocityBlock()->parameters());
       optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i)->GetPositionBlock()->parameters());
     }
 
@@ -569,11 +569,11 @@ class ExpLandmarkOptSLAM {
     optimization_options_.max_num_iterations = 100;
 
 
-    for (size_t i=1; i<state_parameter_.size(); ++i) {
-      optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetRotationBlock()->parameters());
-      optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetVelocityBlock()->parameters());
-      optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetPositionBlock()->parameters());
-    }
+    // for (size_t i=1; i<state_parameter_.size(); ++i) {
+    //   optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetRotationBlock()->parameters());
+    //   // optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetVelocityBlock()->parameters());
+    //   optimization_problem_.SetParameterBlockVariable(state_parameter_.at(i)->GetPositionBlock()->parameters());
+    // }
 
     ceres::Solve(optimization_options_, &optimization_problem_, &optimization_summary_);
     std::cout << optimization_summary_.FullReport() << "\n";
@@ -604,18 +604,19 @@ class ExpLandmarkOptSLAM {
 
     output_file.close();
 
-    std::ofstream output_file_landmark("landmark.csv");
+    // std::ofstream output_file_landmark("landmark.csv");
 
-    output_file_landmark << "id,p_x,p_y,p_z\n";
+    // output_file_landmark << "id,p_x,p_y,p_z\n";
 
-    for (size_t i=0; i<landmark_parameter_.size(); ++i) {
-      output_file_landmark << std::to_string(i+1) << ",";
-      output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(0)) << ",";
-      output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(1)) << ",";
-      output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(2)) << std::endl;
-    }
+    // for (size_t i=0; i<landmark_parameter_.size(); ++i) {
+    //   output_file_landmark << std::to_string(i+1) << ",";
+    //   std::cout <<landmark_parameter_.at(i)->estimate()(0)<<std::endl;
+    //   output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(0)) << ",";
+    //   output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(1)) << ",";
+    //   output_file_landmark << std::to_string(landmark_parameter_.at(i)->estimate()(2)) << std::endl;
+    // }
 
-    output_file_landmark.close();
+    // output_file_landmark.close();
 
     return true;
   }
@@ -656,19 +657,23 @@ int main(int argc, char **argv) {
 
   google::InitGoogleLogging(argv[0]);
 
-  std::string config_folder_path("../config/");
+  std::string config_folder_path("../../config/");
   ExpLandmarkOptSLAM slam_problem(config_folder_path);
+  
+  // std::string euroc_dataset_path = "/media/zidawu/Vampire/data/Euroc/mav0/";
+  std::string euroc_dataset_path =   "/home/zidawu/vio_simulator/vio_data_simulation/bin/";
 
-  std::string euroc_dataset_path = "/media/zidawu/Vampire/data/Euroc/mav0/";
-  std::string ground_truth_file_path = euroc_dataset_path + "state_groundtruth_estimate0/data.csv";
+  // std::string ground_truth_file_path = euroc_dataset_path + "state_groundtruth_estimate0/data.csv";
+  std::string ground_truth_file_path = euroc_dataset_path + "groundtruth.csv";
   slam_problem.ReadInitialCondition(ground_truth_file_path);
 
-  std::string observation_file_path = "feature_observation.csv";
+  std::string observation_file_path = euroc_dataset_path+"feature_observation.csv";
   slam_problem.ReadObservationData(observation_file_path);
 
-  slam_problem.ProcessGroundTruth(ground_truth_file_path);
+  // slam_problem.ProcessGroundTruth(ground_truth_file_path);
 
-  std::string imu_file_path = euroc_dataset_path + "imu0/data.csv";
+  // std::string imu_file_path = euroc_dataset_path + "imu0/data.csv";
+  std::string imu_file_path = euroc_dataset_path + "imudata.csv";
   slam_problem.ReadIMUData(imu_file_path);
   slam_problem.OutputOptimizationResult("trajectory_dr.csv");
 
