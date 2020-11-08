@@ -1,6 +1,6 @@
 %YAML:1.0
 
-time_window: ["0.000000", "19933.372498"]   # initial trial
+time_window: ["0.000000", "34.333335"]   # initial trial
 # time_window: ["1403636665000000000", "1403636700000000000"]    
 # time_window: ["1403636665000000000", "1403636722000000000"]     # from ground_truth_process, finally put in the paper
 

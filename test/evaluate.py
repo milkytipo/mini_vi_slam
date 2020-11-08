@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-gt_data = pd.read_csv("../build/groudtruth.csv")
+gt_data = pd.read_csv("../build/groundtruth.csv")
 estimated_data = pd.read_csv("../build/apps/trajectory.csv")
 estimated_dr_data = pd.read_csv("../build/apps/trajectory_dr.csv")
 landmark_data = pd.read_csv("../build/landmark.csv")

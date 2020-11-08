@@ -239,7 +239,7 @@ class ExpLandmarkOptSLAM {
     // Extract the first line in the file
     std::string line;
     std::getline(input_file, line);
-
+    int i_gt = 0;
     while (std::getline(input_file, line)) {
       std::stringstream s_stream(line);                // Create a stringstream of the current line
 
@@ -258,8 +258,8 @@ class ExpLandmarkOptSLAM {
           }
 
           Eigen::Vector3d initial_position(std::stod(initial_position_str[0]), std::stod(initial_position_str[1]), std::stod(initial_position_str[2]));
-          state_parameter_.at(0)->GetPositionBlock()->setEstimate(initial_position);
-          optimization_problem_.AddParameterBlock(state_parameter_.at(0)->GetPositionBlock()->parameters(), 3);
+          state_parameter_.at(i_gt)->GetPositionBlock()->setEstimate(initial_position);
+          optimization_problem_.AddParameterBlock(state_parameter_.at(i_gt)->GetPositionBlock()->parameters(), 3);
 
           // rotation
           std::string initial_rotation_str[4];
@@ -268,8 +268,8 @@ class ExpLandmarkOptSLAM {
           }
 
           Eigen::Quaterniond initial_rotation(std::stod(initial_rotation_str[0]), std::stod(initial_rotation_str[1]), std::stod(initial_rotation_str[2]), std::stod(initial_rotation_str[3]));
-          state_parameter_.at(0)->GetRotationBlock()->setEstimate(initial_rotation);
-          optimization_problem_.AddParameterBlock(state_parameter_.at(0)->GetRotationBlock()->parameters(), 4, quat_parameterization_ptr_);
+          state_parameter_.at(i_gt)->GetRotationBlock()->setEstimate(initial_rotation);
+          optimization_problem_.AddParameterBlock(state_parameter_.at(i_gt)->GetRotationBlock()->parameters(), 4, quat_parameterization_ptr_);
 
           // velocity
           std::string initial_velocity_str[3];
@@ -278,16 +278,16 @@ class ExpLandmarkOptSLAM {
           }
 
           Eigen::Vector3d initial_velocity(std::stod(initial_velocity_str[0]), std::stod(initial_velocity_str[1]), std::stod(initial_velocity_str[2]));
-          state_parameter_.at(0)->GetVelocityBlock()->setEstimate(initial_velocity);
-          optimization_problem_.AddParameterBlock(state_parameter_.at(0)->GetVelocityBlock()->parameters(), 3);
+          state_parameter_.at(i_gt)->GetVelocityBlock()->setEstimate(initial_velocity);
+          optimization_problem_.AddParameterBlock(state_parameter_.at(i_gt)->GetVelocityBlock()->parameters(), 3);
 
           // set initial condition
-          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(0)->GetRotationBlock()->parameters());
-          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(0)->GetVelocityBlock()->parameters());
-          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(0)->GetPositionBlock()->parameters());
+          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i_gt)->GetRotationBlock()->parameters());
+          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i_gt)->GetVelocityBlock()->parameters());
+          optimization_problem_.SetParameterBlockConstant(state_parameter_.at(i_gt)->GetPositionBlock()->parameters());
 
           std::cout << "Finished initialization from the ground truth file." << std::endl;
-
+// 
           input_file.close();
           return true;
         }
@@ -326,6 +326,10 @@ class ExpLandmarkOptSLAM {
        if (observation_data.GetTimestamp() >time_end_){
           return 0;
        }
+
+    std::cout << "Position1:  " <<state_parameter_.back()->GetPositionBlock()->estimate()(0)<< std::endl;
+    std::cout << "Time1:  " <<state_parameter_.back()->GetTimestamp()<< std::endl;
+
       if (state_parameter_.back()->GetTimestamp() < observation_data.GetTimestamp()) {
           state_parameter_.push_back(new State(observation_data.GetTimestamp()));
 
@@ -354,18 +358,20 @@ class ExpLandmarkOptSLAM {
                                              state_parameter_.back()->GetRotationBlock()->parameters(),
                                              state_parameter_.back()->GetPositionBlock()->parameters(),
                                              landmark_parameter_.at(landmark_id)->parameters());
+    std::cout << "Position2:  " <<state_parameter_.back()->GetPositionBlock()->estimate()(0)<< std::endl;
+    
     }
 
-    // for (size_t i=0; i<landmark_parameter_.size(); ++i) {
+    for (size_t i=0; i<landmark_parameter_.size(); ++i) {
 
-    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 0, -30);
-    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 1, -40);
-    //   optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 2, -20);
+      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 0, -20);
+      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 1, -20);
+      optimization_problem_.SetParameterLowerBound(landmark_parameter_.at(i)->parameters(), 2, -20);
 
-    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 0, 30);
-    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 1, 20);
-    //   optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 2, 20);
-    // }
+      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 0, 20);
+      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 1, 20);
+      optimization_problem_.SetParameterUpperBound(landmark_parameter_.at(i)->parameters(), 2, 20);
+    }
 
     /***
     for (size_t i=0; i<state_parameter_.size(); ++i) {
@@ -494,6 +500,8 @@ class ExpLandmarkOptSLAM {
         position_dr = position_dr + imu_dt_*velocity_dr + 0.5*(imu_dt_*imu_dt_)*accel_plus_gravity;
         velocity_dr = velocity_dr + imu_dt_*accel_plus_gravity;
         rotation_dr = rotation_dr * Exp_q(imu_dt_*(gyro_measurement-gyro_bias));
+    std::cout << "postition Imu:  " <<position_dr(0)<< std::endl;
+
 
 
         // starting to put imu data in the previously established state_parameter_
@@ -512,7 +520,7 @@ class ExpLandmarkOptSLAM {
         // case 3: the imu data just enter the new interval of integration
         else {
 
-          std::cout << int_imu_data.dt_ << std::endl;
+          // std::cout << int_imu_data.dt_ << std::endl;
 
 
           // add imu constraint
@@ -592,7 +600,7 @@ class ExpLandmarkOptSLAM {
 
     output_file << "timestamp,p_x,p_y,p_z,v_x,v_y,v_z,q_w,q_x,q_y,q_z\n";
 
-    for (size_t i=1; i<state_parameter_.size(); ++i) {
+    for (size_t i=1; i<state_parameter_.size()-1; ++i) {
       output_file << std::to_string(state_parameter_.at(i)->GetTimestamp()) << ",";
       output_file << std::to_string(state_parameter_.at(i)->GetPositionBlock()->estimate()(0)) << ",";
       output_file << std::to_string(state_parameter_.at(i)->GetPositionBlock()->estimate()(1)) << ",";
