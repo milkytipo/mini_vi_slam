@@ -4,7 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 gt_data = pd.read_csv("../build/groundtruth.csv")
-estimated_data = pd.read_csv("../build/apps/trajectory.csv")
+estimated_data = pd.read_csv("../build/apps/trajectory_estimated.csv")
+# estimated_data_2 = pd.read_csv("../build/apps/trajectory_dr_2.csv")
+# estimated_data_3 = pd.read_csv("../build/apps/trajectory_dr_3.csv")
+
 estimated_dr_data = pd.read_csv("../build/apps/trajectory_dr.csv")
 landmark_data = pd.read_csv("../build/landmark.csv")
 
@@ -12,10 +15,20 @@ fig = plt.figure(1)
 ax = fig.gca(projection='3d')
 
 
-ax.scatter(landmark_data['p_x'], landmark_data['p_y'], landmark_data['p_z'])
-ax.plot(estimated_dr_data['p_x'], estimated_dr_data['p_y'], estimated_dr_data['p_z'], label='dead reckoning')
-ax.plot(estimated_data['p_x'], estimated_data['p_y'], estimated_data['p_z'], label='estimated')
-ax.plot(gt_data['p_x'], gt_data['p_y'], gt_data['p_z'], label='ground truth')
+# ax.scatter(landmark_data['p_x'], landmark_data['p_y'], landmark_data['p_z'])
+
+
+ax.scatter(landmark_data['p_x'], landmark_data['p_y'], landmark_data['p_z'], s=200, label='Landmark') 
+for x, y, z in zip(landmark_data['p_x'], landmark_data['p_y'], landmark_data['p_z']): 
+    text = str(x) + ', ' + str(y) + ', ' + str(z) 
+    ax.text(x, y, z, text, zdir=(1, 1, 1)) 
+
+ax.plot(estimated_dr_data['p_x'], estimated_dr_data['p_y'], estimated_dr_data['p_z'], label='dead_reckoning', linewidth=2)
+ax.plot(estimated_data['p_x'], estimated_data['p_y'], estimated_data['p_z'], label='imu_estimated', linewidth=2)
+# ax.plot(estimated_data_2['p_x'], estimated_data_2['p_y'], estimated_data_2['p_z'], label='noise_0.01')
+# ax.plot(estimated_data_3['p_x'], estimated_data_3['p_y'], estimated_data_3['p_z'], label='noise_0.1')
+
+ax.plot(gt_data['p_x'], gt_data['p_y'], gt_data['p_z'], label='groundtruth',linewidth=1)
 
 # trajectory only
 # ax.set_xlim(-2.8,1.8)
